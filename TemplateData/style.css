@@ -1,0 +1,132 @@
+html {
+    height: 100%;
+}
+
+body {
+    padding: 0;
+    overflow: hidden;
+    margin: 0;
+    height: 100%;
+    /* background: url(https://megamod-image.s3.amazonaws.com/bg.png); */
+    background-size: cover;
+}
+
+#unity-container {
+    /* position: absolute; */
+    position: fixed;
+    width: 100%;
+    height: 100%;
+}
+
+/* for some reasons this unity standart class style leads to blurring (bad quality of textures, fonts, etc)  */
+/* #unity-container.unity-desktop { left: 50%; top: 50%; transform: translate(-50%, -50%) } */
+
+#unity-container.unity-mobile { position: fixed; width: 100%; height: 100% }
+#unity-canvas { width: 100%; height: 100%; background: {{{ BACKGROUND_COLOR }}} }
+.unity-mobile #unity-canvas { width: 100%; height: 100% }
+#unity-loading-bar { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: none }
+#unity-logo { width: 154px; height: 130px; background: url('unity-logo-{{{ SPLASH_SCREEN_STYLE.toLowerCase() }}}.png') no-repeat center }
+#unity-progress-bar-empty { width: 141px; height: 18px; margin-top: 10px; margin-left: 6.5px; background: url('progress-bar-empty-{{{ SPLASH_SCREEN_STYLE.toLowerCase() }}}.png') no-repeat center }
+#unity-progress-bar-full { width: 0%; height: 18px; margin-top: 10px; background: url('progress-bar-full-{{{ SPLASH_SCREEN_STYLE.toLowerCase() }}}.png') no-repeat center }
+#unity-footer { position: relative }
+.unity-mobile #unity-footer { display: none }
+#unity-webgl-logo { float:left; width: 204px; height: 38px; background: url('webgl-logo.png') no-repeat center }
+#unity-build-title { float: right; margin-right: 10px; line-height: 38px; font-family: arial; font-size: 18px }
+#unity-fullscreen-button { cursor:pointer; float: right; width: 38px; height: 38px; background: url('fullscreen-button.png') no-repeat center }
+#unity-warning { position: absolute; left: 50%; top: 5%; transform: translate(-50%); background: white; padding: 10px; display: none }
+
+.loading-text {
+    position: absolute;
+    bottom: 50px;
+    left: 50%;
+    transform: translateX(-50%);
+    /* font-size: 2.8vw; */
+    font-size: 48px;
+    /* font-size: 3em; */
+    font-family: Arial, sans-serif;
+    z-index: 9999;
+    color: white;
+    font-weight: bold;
+}
+
+.dot {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    margin: 0 2px;
+    background-color: white;
+    border-radius: 50%;
+}
+
+@media (orientation: portrait) {
+    .loading-text {
+        font-size: 5vw;
+    }
+
+    .dot {
+        width: 1.2vw;
+        height: 1.2vw;
+        margin: 0 0.2vw;
+    }
+}
+
+@media (orientation: landscape) and (max-width: 768px) {
+    .loading-text {
+        font-size: 3vw;
+    }
+
+    .dot {
+        width: 0.7vw;
+        height: 0.7vw;
+        margin: 0 0.2vw;
+    }
+}
+
+.dot:nth-child(1) {
+    opacity: 1;
+}
+
+.dot:nth-child(2) {
+    animation: showSecondDot 1.25s infinite;
+}
+
+.dot:nth-child(3) {
+    animation: showThirdDot 1.25s infinite;
+}
+
+    @keyframes showSecondDot {
+    0%, 30% {
+        opacity: 0;
+    }
+    31%, 100% {
+        opacity: 1;
+    }
+}
+
+@keyframes showThirdDot {
+    0%, 60% {
+        opacity: 0;
+    }
+    61%, 100% {
+        opacity: 1;
+    }
+}
+
+#start-container {
+    position: absolute;
+    bottom: 45px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999;
+}
+
+#start-button {
+    font-size: 36px;
+    font-family: Arial, sans-serif;
+    font-weight: bold;
+    color: white;
+    background-color: #00C74F;
+    border: none;
+    padding: 15px 110px;
+    cursor: pointer;
+}
