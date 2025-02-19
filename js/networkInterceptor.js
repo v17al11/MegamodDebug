@@ -110,6 +110,9 @@ function startInspect() {
   // Insert headerDiv at the very top and pad its content.
   document.body.insertBefore(headerDiv, document.body.firstChild);
   padHeaderText();
+  setTimeout(padHeaderText, 100);
+  setTimeout(padHeaderText, 500);
+  setTimeout(padHeaderText, 1000);
   // Recalculate the padded header on window resize.
   window.addEventListener("resize", padHeaderText);
 
@@ -823,6 +826,6 @@ CPU Cores: ${navigator.hardwareConcurrency}`;
     padding: 5px;
     margin-top: 10px;
   `;
-  versionDiv.textContent = "v0.0.2";
+  versionDiv.textContent = "v0.0.3";
   document.body.appendChild(versionDiv);
 }
