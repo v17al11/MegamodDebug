@@ -36,8 +36,6 @@ function startLoadingBuild() {
 
 function startCreateUnityInstance(config) {
   console.log("startCreateUnityInstance");
-
-  console.log("startCreateUnityInstance: clientId ready");
   createUnityInstance(canvas, config, (progress) => {
     // trackProgress(progress);
   })
@@ -45,12 +43,12 @@ function startCreateUnityInstance(config) {
       onBuildLoaded(unityInstance);
     })
     .catch((message) => {
-      console.error('"File is not available: " + message');
+      console.error("startCreateUnityInstance error: " + message);
       let errorProperty = {
         Error: message,
       };
       // sendEvent(GameProgressEnum.Game_Error_Initialization, errorProperty);
-      alert("File is not available: " + message);
+      // alert("startCreateUnityInstance error: " + message);
     });
 }
 
