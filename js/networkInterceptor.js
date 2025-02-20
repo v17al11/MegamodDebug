@@ -8,6 +8,9 @@ function startInspect() {
   };
   const progressStep = 10;
 
+  // Global variable to store the first file start time
+  window.firstFileStartTime = null;
+
   // Ensure that the page can be scrolled
   document.documentElement.style.overflowY = "auto";
   document.body.style.overflowY = "auto";
@@ -41,29 +44,25 @@ function startInspect() {
     "==========================================",
   ];
 
-  // ----- Utility: Check if a line is a border line (all characters are the same) -----
+  // Utility: Check if a line is a border line (all characters are the same)
   function isBorderLine(line) {
     const trimmed = line.trim();
     if (trimmed.length === 0) return false;
     return trimmed.split("").every((ch) => ch === trimmed[0]);
   }
 
-  // ----- Utility: Pad a single line to the target length in characters -----
+  // Utility: Pad a single line to the target length in characters
   function padLine(line, targetLength) {
-    // If the line is a border line, simply return the first character repeated
     if (isBorderLine(line)) {
       return line[0].repeat(targetLength);
     } else {
       const firstChar = line[0];
       const lastChar = line[line.length - 1];
-      // For lines that start and end with the same character, check if the inner text is all '='
       if (firstChar === lastChar) {
         const inner = line.substring(1, line.length - 1).trim();
-        // If the inner text consists solely of '=' characters, treat this as a border line.
         if (/^=+$/.test(inner)) {
           return firstChar + "=".repeat(targetLength - 2) + lastChar;
         } else {
-          // Otherwise, center the inner text between the border characters.
           const innerTarget = targetLength - 2;
           let paddedInner = inner;
           if (inner.length < innerTarget) {
@@ -76,7 +75,6 @@ function startInspect() {
           return firstChar + paddedInner + lastChar;
         }
       } else {
-        // For lines that don't have matching border characters, center the entire line.
         if (line.length < targetLength) {
           const totalSpaces = targetLength - line.length;
           const leftSpaces = Math.floor(totalSpaces / 2);
@@ -89,34 +87,28 @@ function startInspect() {
     }
   }
 
-  // ----- Function to pad the entire header text to fill the header's width -----
+  // Function to pad the entire header text to fill the header's width
   function padHeaderText() {
-    // Get the computed font so our canvas measurement matches
     const computedFont = window.getComputedStyle(headerDiv).font;
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
     ctx.font = computedFont;
-    // Measure one typical character (using "M")
     const charWidth = ctx.measureText("M").width;
-    // Determine how many characters can fit in the current header width
     const targetLength = Math.floor(headerDiv.clientWidth / charWidth);
-    // Pad each original header line to the target length
     const paddedLines = originalHeaderLines.map((line) =>
       padLine(line, targetLength)
     );
     headerDiv.innerText = paddedLines.join("\n");
   }
 
-  // Insert headerDiv at the very top and pad its content.
   document.body.insertBefore(headerDiv, document.body.firstChild);
   padHeaderText();
   setTimeout(padHeaderText, 100);
   setTimeout(padHeaderText, 500);
   setTimeout(padHeaderText, 1000);
-  // Recalculate the padded header on window resize.
   window.addEventListener("resize", padHeaderText);
 
-  // ----- Container for Final Results and Ping Log (align bottom edges) -----
+  // ----- Container for Final Results and Ping Log (aligned at the bottom) -----
   const topInfoContainer = document.createElement("div");
   topInfoContainer.style.cssText = `
     display: flex;
@@ -142,7 +134,7 @@ function startInspect() {
   finalResultsDiv.innerHTML = "<strong>Loading...</strong>";
   topInfoContainer.appendChild(finalResultsDiv);
 
-  // ----- Ping Log Block -----
+  // ----- Ping Log Block (increased size) -----
   const pingLogDiv = document.createElement("div");
   pingLogDiv.style.cssText = `
     background: #000;
@@ -151,66 +143,109 @@ function startInspect() {
     font-size: 12px;
     padding: 5px;
     border: 1px solid #0f0;
-    width: 200px;
-    height: 150px;
+    width: 600px;
+    height: 225px;
     overflow-y: auto;
     margin-left: 10px;
   `;
-  pingLogDiv.innerHTML = "<strong>Ping Log</strong><br/>";
   topInfoContainer.appendChild(pingLogDiv);
 
-  // Insert the topInfoContainer after the headerDiv.
   document.body.insertBefore(topInfoContainer, headerDiv.nextSibling);
 
+  // Update final results block with global start/finish times and file numbering
   window.finalResultsData = {};
   function updateFinalResultsBlock() {
     if (
       window.testRequests.total === 0 ||
       window.testRequests.completed < window.testRequests.total
     ) {
-      finalResultsDiv.innerHTML = "<strong>Loading...</strong>";
+      let startInfo = window.firstFileStartTime
+        ? `Loading started at: ${new Date(
+            window.firstFileStartTime
+          ).toLocaleTimeString()}<br/>`
+        : "";
+      finalResultsDiv.innerHTML = `<strong>Loading...</strong><br/>${startInfo}`;
     } else {
-      let html = `<strong>DONE ✅</strong><br/><strong>Final Results:</strong><br/>`;
+      let globalFinishTime = new Date();
+      let html = `<strong>DONE ✅</strong><br/>
+<strong>Global Start:</strong> ${new Date(
+        window.firstFileStartTime
+      ).toLocaleTimeString()}<br/>
+<strong>Global Finish:</strong> ${globalFinishTime.toLocaleTimeString()}<br/><br/>
+<strong>File Results:</strong><br/>`;
+      let index = 1;
       for (let key in window.finalResultsData) {
-        html += `${key}: ${window.finalResultsData[key]}<br/>`;
+        html += `${index}. ${key}: ${window.finalResultsData[key]}<br/><br/>`;
+        index++;
       }
       finalResultsDiv.innerHTML = html;
     }
   }
 
-  // ----- Function to Measure Ping -----
-  function measurePing(url, iterations = 3) {
-    let promises = [];
-    for (let i = 0; i < iterations; i++) {
-      const startTime = performance.now();
-      promises.push(
-        fetch(url, { method: "HEAD", cache: "no-cache", mode: "no-cors" })
-          .then(() => performance.now() - startTime)
-          .catch(() => Infinity)
-      );
-    }
-    return Promise.all(promises).then((times) => {
-      const valid = times.filter((t) => t !== Infinity);
-      if (valid.length === 0) return Infinity;
-      return valid.reduce((sum, t) => sum + t, 0) / valid.length;
-    });
-  }
-
-  // ----- Start Ping Loop (every 5 seconds) -----
+  // ----- Ping for google.com (using real fetch with timeout) -----
   function startPingLoop() {
-    const pingURL = "https://www.gstatic.com/generate_204";
-    function doPing() {
-      measurePing(pingURL, 3).then((avg) => {
-        const latency = avg === Infinity ? "Infinity" : avg.toFixed(0);
-        const logEntry = document.createElement("div");
-        logEntry.textContent =
-          new Date().toLocaleTimeString() + ": Latency: " + latency;
-        pingLogDiv.appendChild(logEntry);
-        pingLogDiv.scrollTop = pingLogDiv.scrollHeight;
+    let seq = 0;
+    // Display ping header using domain name only
+    pingLogDiv.innerHTML = "";
+    const headerLine = document.createElement("div");
+    headerLine.textContent = `PING google.com: 56 data bytes`;
+    pingLogDiv.appendChild(headerLine);
+
+    // Function to perform a single ping using fetch with a 1-second timeout
+    function pingOnce(seq) {
+      const start = performance.now();
+      return new Promise((resolve) => {
+        let timeoutOccurred = false;
+        const timer = setTimeout(() => {
+          timeoutOccurred = true;
+          resolve({ seq, timeout: true });
+        }, 1000);
+        fetch("https://www.gstatic.com/generate_204", {
+          method: "HEAD",
+          cache: "no-cache",
+          mode: "no-cors",
+        })
+          .then(() => {
+            if (!timeoutOccurred) {
+              clearTimeout(timer);
+              const elapsed = performance.now() - start;
+              resolve({ seq, time: elapsed });
+            }
+          })
+          .catch(() => {
+            if (!timeoutOccurred) {
+              clearTimeout(timer);
+              resolve({ seq, timeout: true });
+            }
+          });
       });
     }
-    doPing();
-    setInterval(doPing, 5000);
+
+    setInterval(() => {
+      pingOnce(seq).then((result) => {
+        let line = "";
+        if (result.timeout) {
+          line = `Request timeout for icmp_seq ${result.seq}`;
+        } else {
+          line = `64 bytes from google.com: icmp_seq=${
+            result.seq
+          } ttl=115 time=${result.time.toFixed(3)} ms`;
+        }
+        const logEntry = document.createElement("div");
+        logEntry.textContent = line;
+        pingLogDiv.appendChild(logEntry);
+        // Auto-scroll only if the user is near the bottom
+        if (
+          pingLogDiv.scrollHeight -
+            pingLogDiv.scrollTop -
+            pingLogDiv.clientHeight <
+          20
+        ) {
+          pingLogDiv.scrollTop = pingLogDiv.scrollHeight;
+        }
+        seq++;
+      });
+    }, 1000);
   }
   startPingLoop();
 
@@ -236,7 +271,6 @@ CPU Cores: ${navigator.hardwareConcurrency}`;
   }
   userInfoText += `\nScreen Resolution: ${window.screen.width} x ${window.screen.height}`;
 
-  // Function to get WebGL info – always create a new canvas for WebGL2
   function getWebGLInfo() {
     const gl2 = document.createElement("canvas").getContext("webgl2");
     const canvas = document.createElement("canvas");
@@ -269,8 +303,6 @@ CPU Cores: ${navigator.hardwareConcurrency}`;
     userInfoText += `\nGPU Vendor: ${webglInfo.vendor}`;
     userInfoText += `\nGPU Renderer: ${webglInfo.renderer}`;
   }
-
-  // Additional information
   userInfoText += `\nVPN IP Address: Not detected`;
   let deviceType = /Mobi|Android/i.test(navigator.userAgent)
     ? "Mobile"
@@ -309,12 +341,9 @@ CPU Cores: ${navigator.hardwareConcurrency}`;
   userInfoText += `\nTime Zone: ${
     Intl.DateTimeFormat().resolvedOptions().timeZone
   }`;
-
   userInfoDiv.innerText = userInfoText;
-  // Insert userInfoDiv after topInfoContainer
   document.body.insertBefore(userInfoDiv, topInfoContainer.nextSibling);
 
-  // Fetch IP/Geo information
   fetch("https://ipinfo.io/json")
     .then((response) => response.json())
     .then((data) => {
@@ -339,10 +368,8 @@ CPU Cores: ${navigator.hardwareConcurrency}`;
     text-align: center;
   `;
   testStatusDiv.innerText = "Status: Loading";
-  // Insert testStatusDiv after userInfoDiv
   document.body.insertBefore(testStatusDiv, userInfoDiv.nextSibling);
 
-  // ----- Status Animation: Update dots cyclically -----
   let statusDots = 0;
   let statusAnimationInterval = setInterval(() => {
     if (
@@ -381,14 +408,12 @@ CPU Cores: ${navigator.hardwareConcurrency}`;
   `;
   document.body.appendChild(networkConsole);
 
-  // ----- Utility: Get Hardcoded Total Size for a File by URL -----
   function getHardcodedTotal(url) {
     if (url.includes(".data.br")) return hardcodedTotalMap[".data.br"];
     if (url.includes(".wasm.br")) return hardcodedTotalMap[".wasm.br"];
     return null;
   }
 
-  // ----- Utility: Create a Log Container for Each Request -----
   function createRequestLogContainer(title) {
     const container = document.createElement("div");
     container.className = "request-log";
@@ -414,7 +439,6 @@ CPU Cores: ${navigator.hardwareConcurrency}`;
     return container;
   }
 
-  // ----- Utility: Log a Line (label: value) -----
   function logRequestInfo(container, label, value) {
     const labelDiv = document.createElement("div");
     labelDiv.textContent = label;
@@ -429,7 +453,6 @@ CPU Cores: ${navigator.hardwareConcurrency}`;
     container.appendChild(valueDiv);
   }
 
-  // ----- Utility: Log Final Result (more noticeable) -----
   function logFinalResult(container, value) {
     const finalDiv = document.createElement("div");
     finalDiv.textContent = value;
@@ -444,7 +467,6 @@ CPU Cores: ${navigator.hardwareConcurrency}`;
     container.appendChild(finalDiv);
   }
 
-  // ----- Utility: Parse Query Parameters from URL -----
   function getQueryParams(url) {
     try {
       const urlObj = new URL(url);
@@ -480,9 +502,13 @@ CPU Cores: ${navigator.hardwareConcurrency}`;
     window.testRequests.total++;
     updateTestStatus();
     const startTime = Date.now();
+    if (!window.firstFileStartTime) {
+      window.firstFileStartTime = startTime;
+    }
     const container = createRequestLogContainer(
       `[Fetch] ${requestInfo.method} ${requestInfo.url}`
     );
+    container._startTime = startTime;
     networkConsole.appendChild(container);
     logRequestInfo(container, "Status", "Starting");
     if (
@@ -505,7 +531,7 @@ CPU Cores: ${navigator.hardwareConcurrency}`;
     return originalFetch.apply(this, args).then((response) => {
       const headerTotal = response.headers.get("Content-Length");
       const eventTotal = headerTotal ? parseInt(headerTotal, 10) : 0;
-      const effectiveTotal = eventTotal;
+      // Log Response Status and Headers first
       logRequestInfo(
         container,
         "Response Status",
@@ -516,11 +542,25 @@ CPU Cores: ${navigator.hardwareConcurrency}`;
         "Response Headers",
         JSON.stringify([...response.headers])
       );
+      // Then log initial progress with "0.00 MB"
+      if (eventTotal > 0) {
+        let totalMB = (eventTotal / (1024 * 1024)).toFixed(2);
+        logRequestInfo(
+          container,
+          "Progress",
+          `0.00 MB / ${totalMB} MB (0%), speed: 0.00 MB/s`
+        );
+      }
       if (!response.body) {
         let elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
         if (container.statusElement)
           container.statusElement.textContent = "Done";
-        logFinalResult(container, `${elapsed} s, (no body stream)`);
+        logFinalResult(
+          container,
+          `${new Date(
+            startTime
+          ).toLocaleTimeString()} - ${new Date().toLocaleTimeString()}, ${elapsed} s, (no body stream)`
+        );
         window.testRequests.completed++;
         updateTestStatus();
         return response;
@@ -563,7 +603,7 @@ CPU Cores: ${navigator.hardwareConcurrency}`;
                 }
               } else {
                 currentSpeed = rawSpeed;
-                let percent = (loadedBytes / effectiveTotal) * 100;
+                let percent = (loadedBytes / eventTotal) * 100;
                 if (
                   percent - lastLoggedPercent >= progressStep ||
                   percent >= 100
@@ -571,7 +611,7 @@ CPU Cores: ${navigator.hardwareConcurrency}`;
                   lastLoggedPercent =
                     Math.floor(percent / progressStep) * progressStep;
                   let loadedMB = (loadedBytes / (1024 * 1024)).toFixed(2);
-                  let totalMB = (effectiveTotal / (1024 * 1024)).toFixed(2);
+                  let totalMB = (eventTotal / (1024 * 1024)).toFixed(2);
                   logRequestInfo(
                     container,
                     "Progress",
@@ -583,7 +623,7 @@ CPU Cores: ${navigator.hardwareConcurrency}`;
               }
             } else {
               currentSpeed = rawSpeed;
-              let percent = (loadedBytes / effectiveTotal) * 100;
+              let percent = (loadedBytes / eventTotal) * 100;
               if (
                 percent - lastLoggedPercent >= progressStep ||
                 percent >= 100
@@ -591,7 +631,7 @@ CPU Cores: ${navigator.hardwareConcurrency}`;
                 lastLoggedPercent =
                   Math.floor(percent / progressStep) * progressStep;
                 let loadedMB = (loadedBytes / (1024 * 1024)).toFixed(2);
-                let totalMB = (effectiveTotal / (1024 * 1024)).toFixed(2);
+                let totalMB = (eventTotal / (1024 * 1024)).toFixed(2);
                 logRequestInfo(
                   container,
                   "Progress",
@@ -616,7 +656,8 @@ CPU Cores: ${navigator.hardwareConcurrency}`;
         });
       }
       return pump().then(() => {
-        let elapsed = (Date.now() - startTime) / 1000;
+        let finishTime = Date.now();
+        let elapsed = (finishTime - startTime) / 1000;
         let sumSpeed = speedSamples.reduce((acc, s) => acc + s, 0);
         let avgSpeed = speedSamples.length ? sumSpeed / speedSamples.length : 0;
         let finalLoaded;
@@ -627,16 +668,22 @@ CPU Cores: ${navigator.hardwareConcurrency}`;
           finalLoaded = loadedBytes;
         }
         let finalLoadedMB = (finalLoaded / (1024 * 1024)).toFixed(2);
-        let totalMB = (eventTotal / (1024 * 1024)).toFixed(2);
-        const finalResultText = `${elapsed.toFixed(
+        const finalResultText = `Started: ${new Date(
+          startTime
+        ).toLocaleTimeString()}, Finished: ${new Date(
+          finishTime
+        ).toLocaleTimeString()}, Duration: ${elapsed.toFixed(
           2
         )} s, ${finalLoadedMB} MB, avg speed: ${avgSpeed.toFixed(2)} MB/s`;
         if (container.statusElement)
           container.statusElement.textContent = "Done";
-        logFinalResult(container, finalResultText);
         let fileKey = "";
-        if (requestInfo.url.includes(".data.br")) fileKey = ".data.br";
-        else if (requestInfo.url.includes(".wasm.br")) fileKey = ".wasm.br";
+        if (
+          requestInfo.url.includes(".data.br") ||
+          requestInfo.url.includes(".wasm.br")
+        ) {
+          fileKey = requestInfo.url;
+        }
         if (fileKey) {
           window.finalResultsData[fileKey] = finalResultText;
           updateFinalResultsBlock();
@@ -679,11 +726,14 @@ CPU Cores: ${navigator.hardwareConcurrency}`;
     window.testRequests.total++;
     updateTestStatus();
     const startTime = Date.now();
+    if (!window.firstFileStartTime) {
+      window.firstFileStartTime = startTime;
+    }
+    this._startTime = startTime;
     const container = createRequestLogContainer(
       `[XHR] ${this._method} ${this._url}`
     );
     networkConsole.appendChild(container);
-    this._logContainer = container;
     this._lastLoggedPercent = 0;
     this._speedSamples = [];
     logRequestInfo(container, "Status", "Starting");
@@ -694,6 +744,16 @@ CPU Cores: ${navigator.hardwareConcurrency}`;
       "Start Time",
       new Date(startTime).toLocaleTimeString()
     );
+    this.addEventListener("loadstart", function (e) {
+      if (e.lengthComputable && e.total > 0) {
+        let totalMB = (e.total / (1024 * 1024)).toFixed(2);
+        logRequestInfo(
+          container,
+          "Progress",
+          `0.00 MB / ${totalMB} MB (0%), speed: 0.00 MB/s`
+        );
+      }
+    });
     this.addEventListener("progress", function (event) {
       let eventTotal = event.total;
       if (event.lengthComputable && eventTotal > 0) {
@@ -773,7 +833,8 @@ CPU Cores: ${navigator.hardwareConcurrency}`;
       }
     });
     this.addEventListener("load", function () {
-      let elapsed = (Date.now() - startTime) / 1000;
+      let finishTime = Date.now();
+      let elapsed = (finishTime - startTime) / 1000;
       const headers = this.getAllResponseHeaders();
       let size = this.response
         ? this.response.byteLength ||
@@ -798,14 +859,18 @@ CPU Cores: ${navigator.hardwareConcurrency}`;
       let avgSpeed = (
         this._speedSamples.length ? sumSpeed / this._speedSamples.length : 0
       ).toFixed(2);
-      const finalResultText = `${elapsed.toFixed(
+      const finalResultText = `Started: ${new Date(
+        startTime
+      ).toLocaleTimeString()}, Finished: ${new Date(
+        finishTime
+      ).toLocaleTimeString()}, Duration: ${elapsed.toFixed(
         2
       )} s, ${finalSizeMB} MB, avg speed: ${avgSpeed} MB/s`;
       if (container.statusElement) container.statusElement.textContent = "Done";
-      logFinalResult(container, finalResultText);
       let fileKey = "";
-      if (this._url.includes(".data.br")) fileKey = ".data.br";
-      else if (this._url.includes(".wasm.br")) fileKey = ".wasm.br";
+      if (this._url.includes(".data.br") || this._url.includes(".wasm.br")) {
+        fileKey = this._url;
+      }
       if (fileKey) {
         window.finalResultsData[fileKey] = finalResultText;
         updateFinalResultsBlock();
@@ -816,7 +881,6 @@ CPU Cores: ${navigator.hardwareConcurrency}`;
     return originalXHRSend.apply(this, arguments);
   };
 
-  // ----- Add Site Version Info at the Bottom -----
   const versionDiv = document.createElement("div");
   versionDiv.style.cssText = `
     background: #000;
