@@ -890,6 +890,6 @@ CPU Cores: ${navigator.hardwareConcurrency}`;
     padding: 5px;
     margin-top: 10px;
   `;
-  versionDiv.textContent = "v0.0.3";
+  versionDiv.textContent = "v0.0.5";
   document.body.appendChild(versionDiv);
 }
